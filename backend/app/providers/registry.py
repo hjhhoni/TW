@@ -6,6 +6,7 @@ from typing import Any
 
 from app.config import load_settings
 
+from .anthropic import AnthropicProvider
 from .base import ChatParams, ChatResult, LLMProvider, Message, ProviderConfig
 from .ollama import OllamaProvider
 from .openai_compat import OpenAICompatProvider
@@ -14,8 +15,21 @@ from .openai_compat import OpenAICompatProvider
 def _build_provider(config: ProviderConfig) -> LLMProvider:
     if config.type == "ollama":
         return OllamaProvider(config)
+    if config.type == "anthropic":
+        return AnthropicProvider(config)
     # 默认走 OpenAI 兼容（也覆盖各类 v1 接口）
     return OpenAICompatProvider(config)
+
+
+def build_from_dict(pcfg: dict) -> LLMProvider:
+    """根据内联配置构建一个临时供应商（用于「测试连接/拉取模型」）。"""
+    config = ProviderConfig(
+        type=pcfg.get("type", "openai_compat"),
+        name=pcfg.get("name", "test"),
+        base_url=pcfg.get("base_url", ""),
+        api_key=pcfg.get("api_key", ""),
+    )
+    return _build_provider(config)
 
 
 class ProviderRegistry:

@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
     await registry.reload()
     _load_example_workflows()
     await sched_start()
-    print("✅ 平台已启动：http://localhost:8000")
+    print("[OK] 平台已启动：http://localhost:8000")
     yield
     await sched_shutdown()
 

@@ -87,6 +87,8 @@ export const api = {
   saveSettings: (settings: any) => jput(`${BASE}/settings`, { settings }),
   testChat: (provider: string, model: string, message: string) =>
     jpost(`${BASE}/providers/chat`, { provider, model, message }),
+  testProvider: (cfg: { type: string; base_url: string; api_key: string; model?: string }) =>
+    jpost(`${BASE}/providers/test`, cfg),
 
   listJobs: () => jget(`${BASE}/jobs`).then((d: any) => d.jobs),
   createJob: (job: any) => jpost(`${BASE}/jobs`, job),

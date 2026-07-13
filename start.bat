@@ -1,89 +1,90 @@
 @echo off
 chcp 65001 >nul
+set PYTHONUTF8=1
+set PYTHONIOENCODING=utf-8
 setlocal
 cd /d "%~dp0"
 
 echo.
 echo ============================================================
-echo    TW 工作流平台  -  一键启动
+echo    TW Workflow Platform  -  One-Click Start
 echo ============================================================
 echo.
 
-REM ---------- 1. 检查 Python ----------
+REM ---------- 1. Check Python ----------
 where python >nul 2>nul
 if errorlevel 1 (
-    echo [X] 未找到 python，请先安装 Python 3.10+ 并加入 PATH。
+    echo [X] python not found. Install Python 3.10+ and add it to PATH.
     pause
     exit /b 1
 )
-for /f "delims=" %%v in ('python -c "import sys;print('%d.%d'%sys.version_info[:2])"') do set PYV=%%v
-echo [OK] Python %PYV% 已就绪
+echo [OK] Python ready
 
-REM ---------- 2. 后端依赖 ----------
+REM ---------- 2. Backend dependencies ----------
 python -c "import fastapi,uvicorn,playwright,apscheduler,httpx,pydantic_settings" >nul 2>nul
 if errorlevel 1 (
-    echo [..] 首次运行，安装后端依赖...
+    echo [..] First run: installing backend dependencies...
     python -m pip install -r backend\requirements.txt
     if errorlevel 1 (
-        echo [X] 后端依赖安装失败，请检查网络或 pip 源。
+        echo [X] Backend install failed. Check network / pip mirror.
         pause
         exit /b 1
     )
 ) else (
-    echo [OK] 后端依赖已就绪
+    echo [OK] Backend dependencies ready
 )
 
-REM ---------- 3. Playwright 浏览器内核（用标记文件避免重复安装）----------
+REM ---------- 3. Playwright chromium (marker avoids re-download) ----------
 if not exist "backend\data\.chromium_ok" (
-    echo [..] 首次运行，下载浏览器内核 chromium（约 150MB，仅一次）...
+    echo [..] First run: downloading chromium ~150MB, once only...
     python -m playwright install chromium
     if errorlevel 1 (
-        echo [X] chromium 下载失败，可稍后手动执行: python -m playwright install chromium
+        echo [X] chromium download failed. Try later: python -m playwright install chromium
         pause
         exit /b 1
     )
     echo.> "backend\data\.chromium_ok"
 ) else (
-    echo [OK] 浏览器内核已就绪
+    echo [OK] Browser kernel ready
 )
 
-REM ---------- 4. 前端 ----------
+REM ---------- 4. Frontend ----------
 where npm >nul 2>nul
 if errorlevel 1 (
-    echo [!] 未找到 npm，跳过前端构建（仅后端可用，或改用: cd frontend ^&^& npm run dev）
+    echo [!] npm not found, skip frontend build. Backend still works.
 ) else (
     if not exist "frontend\node_modules" (
-        echo [..] 首次运行，安装前端依赖...
+        echo [..] First run: installing frontend dependencies...
         pushd frontend
         call npm install --no-audit --no-fund
-        if errorlevel 1 ( echo [X] 前端依赖安装失败 & popd & pause & exit /b 1 )
+        if errorlevel 1 ( echo [X] Frontend install failed & popd & pause & exit /b 1 )
         popd
     )
     if not exist "frontend\dist\index.html" (
-        echo [..] 首次运行，构建前端...
+        echo [..] First run: building frontend...
         pushd frontend
         call npm run build
-        if errorlevel 1 ( echo [X] 前端构建失败 & popd & pause & exit /b 1 )
+        if errorlevel 1 ( echo [X] Frontend build failed & popd & pause & exit /b 1 )
         popd
     )
-    echo [OK] 前端已就绪
+    echo [OK] Frontend ready
 )
 
-REM ---------- 5. 启动 ----------
+REM ---------- 5. Start ----------
 echo.
 echo ============================================================
-echo    全部就绪，正在启动...
-echo    地址: http://localhost:8000   （浏览器将自动打开）
-echo    停止: 在本窗口按 Ctrl+C
+echo    All ready. Starting server...
+echo    URL: http://localhost:8000   (browser opens automatically)
+echo    Stop: press Ctrl+C in this window
 echo ============================================================
 echo.
 
-REM 4 秒后自动打开浏览器（独立进程，不阻塞服务器）
+REM open browser after 4s (separate process, won't block server)
 start "" cmd /c "timeout /t 4 >nul & start http://localhost:8000"
 
 python backend\run.py
 
 echo.
-echo 服务已停止。
+echo Server stopped.
 pause
 endlocal

@@ -32,6 +32,12 @@ def _default_settings() -> dict[str, Any]:
                 "api_key": "",
             },
             {
+                "type": "anthropic",
+                "name": "Anthropic (Claude)",
+                "base_url": "https://api.anthropic.com",
+                "api_key": "",
+            },
+            {
                 "type": "ollama",
                 "name": "Ollama (本地)",
                 "base_url": "http://localhost:11434",

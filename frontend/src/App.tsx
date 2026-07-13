@@ -84,7 +84,10 @@ export default function App() {
               </div>
             )}
           </>
-        ) : view === 'runs' ? <Runs /> : view === 'jobs' ? <Jobs /> : <Settings />}
+        ) : view === 'runs' ? <Runs /> : view === 'jobs' ? <Jobs /> : <Settings onSaved={() => {
+          api.getProviders().then(setProviders)
+          api.getModels().then(setModels)
+        }} />}
       </div>
     </div>
   )
