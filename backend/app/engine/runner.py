@@ -17,6 +17,7 @@ EventCb = Callable[[str, str, dict | None], Awaitable[None]]
 async def run_workflow(
     workflow_id: str,
     inputs: dict[str, Any] | None = None,
+    run_id: str | None = None,
     source: str = "manual",
     on_event: EventCb | None = None,
 ) -> dict[str, Any]:
@@ -24,7 +25,7 @@ async def run_workflow(
     if not wf:
         raise ValueError(f"工作流不存在: {workflow_id}")
 
-    run_id = uuid.uuid4().hex[:12]
+    run_id = run_id or uuid.uuid4().hex[:12]
     inputs = inputs or {}
     storage.create_run(run_id, workflow_id, wf["name"], inputs, source)
 

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 后端运行时数据
+backend/data/platform.db
+backend/data/platform.db-*
+backend/data/settings.json
+backend/data/runs/
+
+# 前端
+frontend/node_modules/
+frontend/dist/
+
+# 系统
+.DS_Store
+Thumbs.db
