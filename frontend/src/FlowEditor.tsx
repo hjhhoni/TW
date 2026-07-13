@@ -36,7 +36,7 @@ function FlowInner({
 }) {
   const wfId = workflow.id
   const rf = useReactFlow()
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<NodeData>>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -46,7 +46,7 @@ function FlowInner({
   // 加载工作流图 → React Flow
   useEffect(() => {
     const g = workflow.graph || { nodes: [], edges: [] }
-    const ns: Node[] = (g.nodes || []).map((n: any) => ({
+    const ns: Node<NodeData>[] = (g.nodes || []).map((n: any) => ({
       id: n.id, position: n.position || { x: 0, y: 0 },
       data: { type: n.type, label: n.label || '', config: n.config || {}, color: nodeTypes[n.type]?.color, status: 'idle' },
       type: 'custom',
@@ -78,7 +78,7 @@ function FlowInner({
     if (!type || !nodeTypes[type]) return
     const pos = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
     const id = newId(type)
-    const node: Node = {
+    const node: Node<NodeData> = {
       id, type: 'custom', position: pos,
       data: { type, label: nodeTypes[type].label, config: makeDefaultConfig(type, nodeTypes), color: nodeTypes[type].color, status: 'idle' },
     }
@@ -93,7 +93,7 @@ function FlowInner({
     setNodes((ns) => ns.concat({
       id, type: 'custom', position: { x: center.x - 100 + (ns.length % 5) * 30, y: center.y - 40 + (ns.length % 5) * 30 },
       data: { type, label: nodeTypes[type].label, config: makeDefaultConfig(type, nodeTypes), color: nodeTypes[type].color, status: 'idle' },
-    }))
+    } as Node<NodeData>))
     setDirty(true)
   }
 
