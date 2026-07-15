@@ -79,6 +79,36 @@ async def delete_workflow(wid: str):
     return {"ok": True}
 
 
+class ImportReq(BaseModel):
+    name: str
+    description: str = ""
+    graph: dict
+
+
+@router.post("/workflows/import")
+async def import_workflow(body: ImportReq):
+    """从 JSON 导入工作流（粘贴或上传）。"""
+    WorkflowGraph(**body.graph)
+    wid = uuid.uuid4().hex[:12]
+    wf = storage.upsert_workflow(wid, body.name, body.description, body.graph)
+    wf["graph"] = json.loads(wf["graph"])
+    return wf
+
+
+@router.post("/workflows/{wid}/duplicate")
+async def duplicate_workflow(wid: str):
+    existing = storage.get_workflow(wid)
+    if not existing:
+        raise HTTPException(404, "工作流不存在")
+    new_id = uuid.uuid4().hex[:12]
+    wf = storage.upsert_workflow(
+        new_id, existing["name"] + " (副本)", existing["description"],
+        json.loads(existing["graph"]),
+    )
+    wf["graph"] = json.loads(wf["graph"])
+    return wf
+
+
 @router.get("/node-types")
 async def node_types():
     return {"types": NODE_TYPES}

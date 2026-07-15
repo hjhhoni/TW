@@ -14,6 +14,20 @@ from .schema import WorkflowGraph
 EventCb = Callable[[str, str, dict | None], Awaitable[None]]
 
 
+def _truncate(v: Any, limit: int = 1500, depth: int = 0) -> Any:
+    """截断超长字段，防止运行记录撑爆数据库（资产会保留输出全文）。"""
+    if depth > 4:
+        return "…"
+    if isinstance(v, str):
+        return v[:limit] + ("…[截断]" if len(v) > limit else "")
+    if isinstance(v, list):
+        head = [_truncate(x, limit, depth + 1) for x in v[:50]]
+        return head + (["…[共%d项]" % len(v)] if len(v) > 50 else [])
+    if isinstance(v, dict):
+        return {k: _truncate(x, limit, depth + 1) for k, x in v.items()}
+    return v
+
+
 async def run_workflow(
     workflow_id: str,
     inputs: dict[str, Any] | None = None,
@@ -37,7 +51,7 @@ async def run_workflow(
         has_out = bool(result["outputs"])
         status = "success" if not result["errors"] else ("partial" if has_out else "error")
         storage.finish_run(
-            run_id, status, result["outputs"], result["node_outputs"],
+            run_id, status, result["outputs"], _truncate(result["node_outputs"]),
             error=None if not result["errors"] else "; ".join(f"{n}:{e}" for n, e in result["errors"]),
         )
         result["run_id"] = run_id

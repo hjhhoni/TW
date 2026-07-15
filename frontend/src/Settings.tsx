@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from './api'
 
 let _uidSeq = 0
 const uid = () => `p${Date.now().toString(36)}${_uidSeq++}`
 
-export function Settings({ onSaved }: { onSaved?: () => void }) {
+export function Settings() {
   const [settings, setSettings] = useState<any>(null)
-  const [msg, setMsg] = useState('')
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const firstRun = useRef(true)
+  const saveTimer = useRef<any>(null)
 
   useEffect(() => {
     api.getSettings().then((s: any) => {
@@ -14,6 +16,26 @@ export function Settings({ onSaved }: { onSaved?: () => void }) {
       setSettings(s)
     })
   }, [])
+
+  // 自动保存：任何改动后防抖 1s 落盘，并重新加载供应商客户端；跳过首次加载
+  useEffect(() => {
+    if (!settings) return
+    if (firstRun.current) { firstRun.current = false; return }
+    setStatus('saving')
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      const toSave = { ...settings, providers: settings.providers.map(({ _uid, ...rest }: any) => rest) }
+      try {
+        await api.saveSettings(toSave)
+        await api.reloadProviders()
+        setStatus('saved')
+        setTimeout(() => setStatus((s) => (s === 'saved' ? 'idle' : s)), 2000)
+      } catch {
+        setStatus('error')
+      }
+    }, 1000)
+    return () => clearTimeout(saveTimer.current)
+  }, [settings])
 
   if (!settings) return <div className="page">加载中…</div>
 
@@ -29,19 +51,6 @@ export function Settings({ onSaved }: { onSaved?: () => void }) {
       providers: settings.providers.concat({ _uid: uid(), type: 'openai_compat', name: '新供应商', base_url: '', api_key: '' }),
     })
   const setBrowser = (k: string, v: any) => setSettings({ ...settings, browser: { ...settings.browser, [k]: v } })
-
-  const save = async () => {
-    // 保存前剥掉前端的 _uid
-    const toSave = {
-      ...settings,
-      providers: settings.providers.map(({ _uid, ...rest }: any) => rest),
-    }
-    await api.saveSettings(toSave)
-    await api.reloadProviders()
-    setMsg('已保存并重新加载供应商')
-    setTimeout(() => setMsg(''), 3000)
-    onSaved?.()
-  }
 
   return (
     <div className="page">
@@ -81,8 +90,12 @@ export function Settings({ onSaved }: { onSaved?: () => void }) {
         <div className="hint" style={{ marginTop: 8 }}>搜索引擎仅作为未指定时的默认值；工作流节点可单独指定。多引擎会并发并去重。</div>
       </div>
 
-      <button className="btn" onClick={save}>💾 保存设置</button>
-      {msg && <span style={{ marginLeft: 12, color: 'var(--green)' }}>{msg}</span>}
+      <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-dim)' }}>
+        修改会自动保存
+        {status === 'saving' && <span style={{ color: 'var(--amber)' }}> · 正在保存…</span>}
+        {status === 'saved' && <span style={{ color: 'var(--green)' }}> · ✓ 已保存</span>}
+        {status === 'error' && <span style={{ color: 'var(--red)' }}> · 保存失败</span>}
+      </div>
     </div>
   )
 }

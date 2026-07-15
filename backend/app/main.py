@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import storage
-from app.api import jobs, providers, runs, workflows
+from app.api import assets, jobs, providers, runs, workflows
 from app.config import WORKFLOWS_DIR
 from app.providers.registry import registry
 from app.scheduler import shutdown as sched_shutdown
@@ -68,6 +68,7 @@ app.include_router(providers.router)
 app.include_router(workflows.router)
 app.include_router(runs.router)
 app.include_router(jobs.router)
+app.include_router(assets.router)
 
 
 @app.get("/api/health")

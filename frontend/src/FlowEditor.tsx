@@ -25,6 +25,7 @@ function newId(type: string) {
 
 function FlowInner({
   workflow, providers, models, nodeTypes, dirty, setDirty, onSaved,
+  onExport, onDuplicate, onDelete, onStartRun,
 }: {
   workflow: any
   providers: any[]
@@ -33,6 +34,10 @@ function FlowInner({
   dirty: boolean
   setDirty: (v: boolean) => void
   onSaved: () => void
+  onExport: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+  onStartRun: (inputs: Record<string, string>, nodeLabels: Record<string, string>) => void
 }) {
   const wfId = workflow.id
   const rf = useReactFlow()
@@ -100,6 +105,10 @@ function FlowInner({
   const selected = useMemo(
     () => nodes.find((n) => n.id === selectedId) as Node<NodeData> | undefined,
     [nodes, selectedId],
+  )
+  const nodeLabelMap = useMemo(
+    () => Object.fromEntries(nodes.map((n) => [n.id, (n.data as NodeData)?.label || n.id])),
+    [nodes],
   )
 
   const updateConfig = (key: string, val: any) => {
@@ -176,13 +185,16 @@ function FlowInner({
 
       {/* 画布 */}
       <div className="flow" ref={wrapperRef} onDrop={onDrop} onDragOver={onDragOver}>
-        <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, display: 'flex', gap: 8 }}>
+        <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: '60%' }}>
           <button className="btn ghost sm" onClick={save} disabled={saving || !dirty}>
             {saving ? '保存中…' : dirty ? '💾 保存 *' : '💾 已保存'}
           </button>
           <button className="btn sm" onClick={() => setShowRun(true)} disabled={dirty}>
             {dirty ? '请先保存' : '▶ 运行'}
           </button>
+          <button className="btn ghost sm" onClick={onDuplicate} title="复制工作流">⎘ 复制</button>
+          <button className="btn ghost sm" onClick={onExport} title="导出 JSON">⤓ 导出</button>
+          <button className="btn danger sm" onClick={onDelete} title="删除工作流">🗑 删除</button>
         </div>
         <ReactFlow
           nodes={nodes} edges={edges}
@@ -233,9 +245,10 @@ function FlowInner({
       </div>
 
       {showRun && (
-        <RunDialog workflowId={wfId} workflowName={workflow.name}
-          nodes={nodes} setNodes={setNodes}
-          onClose={() => setShowRun(false)} />
+        <RunDialog workflowName={workflow.name}
+          inputNodes={nodes.filter((n) => n.data?.type === 'input')}
+          onClose={() => setShowRun(false)}
+          onStart={(inputs) => onStartRun(inputs, nodeLabelMap)} />
       )}
     </div>
   )

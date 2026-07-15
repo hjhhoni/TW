@@ -67,6 +67,17 @@ def init_db() -> None:
                 last_run_at REAL,
                 next_run_at REAL
             );
+
+            CREATE TABLE IF NOT EXISTS assets (
+                id TEXT PRIMARY KEY,
+                run_id TEXT,
+                workflow_id TEXT,
+                workflow_name TEXT DEFAULT '',
+                title TEXT NOT NULL,
+                content TEXT DEFAULT '',
+                kind TEXT DEFAULT 'text',
+                created_at REAL NOT NULL
+            );
             """
         )
 
@@ -199,3 +210,34 @@ def touch_job_run(job_id: str, last_run_at: float, next_run_at: float | None) ->
             "UPDATE jobs SET last_run_at=?, next_run_at=? WHERE id=?",
             (last_run_at, next_run_at, job_id),
         )
+
+
+# ---------- assets ----------
+def create_asset(asset_id: str, run_id: str | None, workflow_id: str | None,
+                 workflow_name: str, title: str, content: str, kind: str = "text") -> None:
+    with _lock, get_conn() as conn:
+        conn.execute(
+            "INSERT INTO assets (id, run_id, workflow_id, workflow_name, title, content, kind, created_at) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (asset_id, run_id, workflow_id, workflow_name, title, content, kind, time.time()),
+        )
+
+
+def list_assets() -> list[dict[str, Any]]:
+    with _lock, get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, run_id, workflow_id, workflow_name, title, kind, created_at, "
+            "length(content) AS size FROM assets ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_asset(asset_id: str) -> dict[str, Any] | None:
+    with _lock, get_conn() as conn:
+        row = conn.execute("SELECT * FROM assets WHERE id=?", (asset_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def delete_asset(asset_id: str) -> None:
+    with _lock, get_conn() as conn:
+        conn.execute("DELETE FROM assets WHERE id=?", (asset_id,))

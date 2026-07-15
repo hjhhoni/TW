@@ -44,35 +44,42 @@ export const api = {
   updateWorkflow: (id: string, patch: any) => jput(`${BASE}/workflows/${id}`, patch),
   deleteWorkflow: (id: string) => jdel(`${BASE}/workflows/${id}`),
 
-  // 流式运行：返回取消函数；onEvent 接收每个 SSE 事件
-  runStream: (
-    wid: string, inputs: Record<string, any>,
+  // 后台运行：立即返回 run_id，真正执行在服务端后台
+  startRun: (wid: string, inputs: Record<string, any>) =>
+    jpost(`${BASE}/workflows/${wid}/run`, { inputs }).then((d: any) => d.run_id as string),
+
+  cancelRun: (rid: string) => jpost(`${BASE}/runs/${rid}/cancel`, {}),
+
+  // 订阅某次运行的进度（SSE，可随时断开重连，不影响后台运行）。返回取消函数。
+  subscribeRunEvents: (
+    rid: string,
     onEvent: (ev: { node: string; status: string; data?: any }) => void,
+    onDone?: () => void,
   ) => {
     const ctrl = new AbortController()
     ;(async () => {
-      const r = await fetch(`${BASE}/workflows/${wid}/run`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputs, stream: true }),
-        signal: ctrl.signal,
-      })
-      if (!r.body) return
-      const reader = r.body.getReader()
-      const dec = new TextDecoder()
-      let buf = ''
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += dec.decode(value, { stream: true })
-        const parts = buf.split('\n\n')
-        buf = parts.pop() || ''
-        for (const part of parts) {
-          const line = part.split('\n').find((l) => l.startsWith('data: '))
-          if (!line) continue
-          try { onEvent(JSON.parse(line.slice(6))) } catch {}
+      try {
+        const r = await fetch(`${BASE}/runs/${rid}/events`, { signal: ctrl.signal })
+        if (!r.body) return
+        const reader = r.body.getReader()
+        const dec = new TextDecoder()
+        let buf = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buf += dec.decode(value, { stream: true })
+          const parts = buf.split('\n\n')
+          buf = parts.pop() || ''
+          for (const part of parts) {
+            const line = part.split('\n').find((l) => l.startsWith('data: '))
+            if (!line) continue
+            let ev: any
+            try { ev = JSON.parse(line.slice(6)) } catch { continue }
+            onEvent(ev)
+            if (ev.node === '__run__') { onDone?.(); return }
+          }
         }
-      }
+      } catch { /* aborted */ }
     })()
     return () => ctrl.abort()
   },
@@ -94,4 +101,13 @@ export const api = {
   createJob: (job: any) => jpost(`${BASE}/jobs`, job),
   toggleJob: (id: string) => jpost(`${BASE}/jobs/${id}/toggle`, {}),
   deleteJob: (id: string) => jdel(`${BASE}/jobs/${id}`),
+
+  // 工作流导入/复制（导出直接用 getWorkflow 下载 JSON）
+  importWorkflow: (doc: any) => jpost(`${BASE}/workflows/import`, doc),
+  duplicateWorkflow: (id: string) => jpost(`${BASE}/workflows/${id}/duplicate`, {}),
+
+  // 资产库
+  listAssets: () => jget(`${BASE}/assets`).then((d: any) => d.assets),
+  getAsset: (id: string) => jget(`${BASE}/assets/${id}`),
+  deleteAsset: (id: string) => jdel(`${BASE}/assets/${id}`),
 }
